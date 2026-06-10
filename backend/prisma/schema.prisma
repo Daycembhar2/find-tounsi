@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── UTILISATEURS ─────────────────────────────────────
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  name       String
+  role       Role     @default(USER)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ── CATÉGORIES ───────────────────────────────────────
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  name_ar     String?
+  slug        String    @unique
+  description String?
+  icon        String?
+  created_at  DateTime  @default(now())
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+// ── MARQUES ──────────────────────────────────────────
+model Brand {
+  id          String    @id @default(uuid())
+  name        String
+  name_ar     String?
+  slug        String    @unique
+  description String?
+  logo_url    String?
+  founded     Int?
+  is_verified Boolean   @default(false)
+  created_at  DateTime  @default(now())
+
+  products    Product[]
+
+  @@map("brands")
+}
+
+// ── RÉGIONS ──────────────────────────────────────────
+model Region {
+  id          String   @id @default(uuid())
+  name        String
+  name_ar     String?
+  slug        String   @unique
+  latitude    Float?
+  longitude   Float?
+  created_at  DateTime @default(now())
+
+  products    Product[]
+
+  @@map("regions")
+}
+
+// ── PRODUITS ─────────────────────────────────────────
+model Product {
+  id                      String   @id @default(uuid())
+  name                    String
+  name_ar                 String?
+  slug                    String   @unique
+  description             String?
+  price                   Float?
+  currency                String   @default("DT")
+  image_url               String?
+  barcode                 String?  @unique
+  is_100_percent_tunisian Boolean  @default(true)
+  category_id             String?
+  brand_id                String?
+  region_id               String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  category Category? @relation(fields: [category_id], references: [id])
+  brand    Brand?    @relation(fields: [brand_id], references: [id])
+  region   Region?   @relation(fields: [region_id], references: [id])
+
+  @@map("products")
+}
+
+// ── BOYCOTT ──────────────────────────────────────────
+model BoycottItem {
+  id          String       @id @default(uuid())
+  name        String
+  name_ar     String?
+  reason      String?
+  level       BoycottLevel @default(MEDIUM)
+  logo_url    String?
+  alternative String?
+  is_active   Boolean      @default(true)
+  created_at  DateTime     @default(now())
+
+  @@map("boycott_items")
+}
+
+enum BoycottLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
