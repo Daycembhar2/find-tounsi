@@ -1,8 +1,8 @@
-const express    = require('express');
-const cors       = require('cors');
-const dotenv     = require('dotenv');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const express = require('express');
+const cors    = require('cors');
 
-dotenv.config();
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +49,8 @@ app.use('/api/categories', require('./routes/categories.routes'));
 app.use('/api/brands',     require('./routes/brands.routes'));
 app.use('/api/regions',    require('./routes/map.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/scan', require('./routes/scan.routes'));
+app.use('/api/ai', require('./routes/ai.routes'));
 // ── Démarrage serveur ────────────────────────────────
 app.listen(PORT, () => {
   console.log('');
