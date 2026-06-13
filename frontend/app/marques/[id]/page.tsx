@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
-import { Header } from "@/components/header"
+import Header from "@/components/header"
 import { BottomNav } from "@/components/bottom-nav"
 import { ProductCard } from "@/components/product-card"
 import { Badge } from "@/components/ui/badge"
@@ -8,39 +7,46 @@ import { Globe, Calendar } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import type { Product } from "@/lib/types"
+import type { Brand, Product } from "@/lib/types"
+
+async function getBrand(id: string): Promise<Brand | null> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  const res = await fetch(`${API_URL}/api/brands/${id}`, { cache: "no-store" })
+  if (!res.ok) return null
+  const json = await res.json()
+  return json.data || null
+}
+
+async function getBrandProducts(brandSlug: string): Promise<Product[]> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  const res = await fetch(`${API_URL}/api/products?brand=${brandSlug}`, { cache: "no-store" })
+  if (!res.ok) return []
+  const json = await res.json()
+  return json.data || []
+}
 
 export default async function BrandDetailPage({
   params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const supabase = await createClient()
-
-  // Fetch brand
-  const { data: brand } = await supabase.from("brands").select("*").eq("id", params.id).single()
+  const { id } = await params
+  const brand = await getBrand(id)
 
   if (!brand) {
     notFound()
   }
 
-  // Fetch brand products
-  const { data: products } = await supabase
-    .from("products")
-    .select("*, brands(*), categories(*)")
-    .eq("brand_id", params.id)
-    .order("created_at", { ascending: false })
+  const products = await getBrandProducts(brand.slug)
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
 
       <main className="flex-1 pb-20 md:pb-8">
-        {/* Brand Header */}
         <div className="bg-muted/30 border-b">
           <div className="container px-4 py-8">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-              {/* Brand Logo */}
               <div className="relative h-24 w-24 flex-shrink-0 rounded-lg bg-background border overflow-hidden">
                 <Image
                   src={brand.logo_url || "/placeholder.svg?height=200&width=200"}
@@ -50,7 +56,6 @@ export default async function BrandDetailPage({
                 />
               </div>
 
-              {/* Brand Info */}
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground">{brand.name}</h1>
@@ -60,10 +65,10 @@ export default async function BrandDetailPage({
                 {brand.name_ar && <p className="text-lg text-muted-foreground mb-4">{brand.name_ar}</p>}
 
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                  {brand.founded_year && (
+                  {brand.founded && (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      <span>Depuis {brand.founded_year}</span>
+                      <span>Depuis {brand.founded}</span>
                     </div>
                   )}
                   {brand.website && (
@@ -78,7 +83,6 @@ export default async function BrandDetailPage({
               </div>
             </div>
 
-            {/* Description */}
             {brand.description && (
               <div className="mt-6">
                 <p className="text-muted-foreground leading-relaxed max-w-3xl">{brand.description}</p>
@@ -87,13 +91,12 @@ export default async function BrandDetailPage({
           </div>
         </div>
 
-        {/* Products */}
         <div className="container px-4 py-8">
           <h2 className="text-2xl font-bold text-foreground mb-6">
-            Produits de {brand.name} ({products?.length || 0})
+            Produits de {brand.name} ({products.length})
           </h2>
 
-          {products && products.length > 0 ? (
+          {products.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {products.map((product: Product) => (
                 <ProductCard key={product.id} product={product} />

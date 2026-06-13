@@ -8,19 +8,19 @@ import Link from "next/link"
 import type { Category, Product, Brand } from "@/lib/types"
 
 export default async function Home() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
   // ✅ Fetch categories
-  const categoriesRes = await fetch(`${API_URL}/categories?limit=4`, { cache: "no-store" })
-  const categories: Category[] = categoriesRes.ok ? await categoriesRes.json() : []
+const categoriesRes = await fetch(`${API_URL}/api/categories?limit=4`, { cache: "no-store" })
+const categories: Category[] = categoriesRes.ok ? await categoriesRes.json().then(r => r.data) : []
 
-  // ✅ Fetch products
-  const productsRes = await fetch(`${API_URL}/products?limit=4`, { cache: "no-store" })
-  const products: Product[] = productsRes.ok ? await productsRes.json() : []
+// ✅ Fetch products
+const productsRes = await fetch(`${API_URL}/api/products?limit=4`, { cache: "no-store" })
+const products: Product[] = productsRes.ok ? await productsRes.json().then(r => r.data) : []
 
-  // ✅ Fetch brands
-  const brandsRes = await fetch(`${API_URL}/brands?limit=6`, { cache: "no-store" })
-  const brands: Brand[] = brandsRes.ok ? await brandsRes.json() : []
+// ✅ Fetch brands
+const brandsRes = await fetch(`${API_URL}/api/brands?limit=6`, { cache: "no-store" })
+const brands: Brand[] = brandsRes.ok ? await brandsRes.json().then(r => r.data) : []
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -1,27 +1,52 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { Header } from "@/components/header"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import Header from "@/components/header"
 import { BottomNav } from "@/components/bottom-nav"
 import { ProductCard } from "@/components/product-card"
 import { Heart } from "lucide-react"
+import { authService } from "@/services/auth.service"
+import { favoritesService } from "@/services/favorites.service"
 import type { Product } from "@/lib/types"
 
-export default async function FavorisPage() {
-  const supabase = await createClient()
+export default function FavorisPage() {
+  const router = useRouter()
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  useEffect(() => {
+    const user = authService.getCurrentUser()
+    if (!user) {
+      router.push("/auth/login?next=/favoris")
+      return
+    }
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+    const loadFavorites = async () => {
+      try {
+        const result = await favoritesService.getAll()
+        const items = (result.data || []).map((fav: { product: Product }) => fav.product).filter(Boolean)
+        setProducts(items)
+      } catch {
+        const saved = localStorage.getItem("findtounsi_favorites")
+        const ids: string[] = saved ? JSON.parse(saved) : []
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+        const fetched = await Promise.all(
+          ids.map(async (id) => {
+            const res = await fetch(`${API_URL}/api/products/${id}`)
+            if (!res.ok) return null
+            const json = await res.json()
+            return json.data as Product
+          })
+        )
+        setProducts(fetched.filter(Boolean) as Product[])
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const { data: favorites } = await supabase
-    .from("favorites")
-    .select("*, products(*, brands(*), categories(*))")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
+    loadFavorites()
+  }, [router])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -31,13 +56,15 @@ export default async function FavorisPage() {
         <div className="container px-4 py-6">
           <div className="mb-6">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Mes Favoris</h1>
-            <p className="text-muted-foreground">{favorites?.length || 0} produit(s) favori(s)</p>
+            <p className="text-muted-foreground">{products.length} produit(s) favori(s)</p>
           </div>
 
-          {favorites && favorites.length > 0 ? (
+          {isLoading ? (
+            <p className="text-muted-foreground">Chargement...</p>
+          ) : products.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {favorites.map((fav: any) => (
-                <ProductCard key={fav.id} product={fav.products as Product} />
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           ) : (

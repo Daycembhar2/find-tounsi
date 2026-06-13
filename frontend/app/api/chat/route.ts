@@ -23,7 +23,7 @@ Tu aides les utilisateurs tunisiens avec:
 Sois courtois, professionnel et toujours prêt à aider. Réponds en français.`,
       prompt: message,
       temperature: 0.7,
-      maxTokens: 500,
+      maxOutputTokens: 500,
     })
 
     const supabase = await createClient()

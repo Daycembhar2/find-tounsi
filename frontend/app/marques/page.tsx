@@ -1,17 +1,22 @@
-import { createClient } from "@/lib/supabase/server"
-import { Header } from "@/components/header"
+import Header from "@/components/header"
 import { BottomNav } from "@/components/bottom-nav"
 import { BrandCard } from "@/components/brand-card"
 import type { Brand } from "@/lib/types"
 
-export default async function MarquesPage() {
-  const supabase = await createClient()
+async function getBrands(): Promise<Brand[]> {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+  const res = await fetch(`${API_URL}/api/brands`, { cache: "no-store" })
+  if (!res.ok) return []
+  const json = await res.json()
+  return json.data || []
+}
 
-  const { data: brands } = await supabase.from("brands").select("*").order("name")
+export default async function MarquesPage() {
+  const brands = await getBrands()
 
   return (
     <div className="min-h-screen flex flex-col">
-      
+      <Header />
 
       <main className="flex-1 pb-20 md:pb-8">
         <div className="container px-4 py-6">
@@ -20,7 +25,7 @@ export default async function MarquesPage() {
             <p className="text-muted-foreground">Découvrez toutes les marques 100% tunisiennes</p>
           </div>
 
-          {brands && brands.length > 0 ? (
+          {brands.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {brands.map((brand: Brand) => (
                 <BrandCard key={brand.id} brand={brand} />

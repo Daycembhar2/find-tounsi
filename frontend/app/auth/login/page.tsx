@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { authService } from "@/services/auth.service"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -20,20 +19,30 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) throw error
-      router.push("/profil")
-      router.refresh()
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      // On récupère la réponse de la connexion (contenant l'utilisateur et son rôle)
+      const response = await authService.login({ email, password })
+
+      // Extrait le rôle : selon la structure retournée par votre API
+      // Suppose que response = { user: { role: 'SELLER' } } ou { role: 'SELLER' }
+      const role = response.user?.role || response.role
+
+      // Redirection selon le rôle
+      if (role === "SELLER") {
+        router.push("/vendeur/dashboard")
+      } else if (role === "ADMIN") {
+        router.push("/admin/dashboard")
+      } else {
+        // Rôle par défaut : USER (ou tout autre rôle non spécifié)
+        router.push("/")
+      }
+
+      router.refresh() // Rafraîchit les composants serveur (si vous utilisez Next.js App Router)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Email ou mot de passe incorrect")
     } finally {
       setIsLoading(false)
     }
@@ -78,7 +87,7 @@ export default function LoginPage() {
                   </Button>
                 </div>
                 <div className="mt-4 text-center text-sm">
-                  Pas de compte?{" "}
+                  Pas de compte ?{" "}
                   <Link href="/auth/sign-up" className="underline underline-offset-4">
                     S'inscrire
                   </Link>

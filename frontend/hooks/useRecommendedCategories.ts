@@ -13,7 +13,7 @@ export function useRecommendedCategories(currentCategory?: string) {
     const recommendations = service.getRecommendedCategories(4);
     
     if (currentCategory) {
-      const filtered = recommendations.filter(cat => cat !== currentCategory);
+      const filtered = recommendations.filter((cat: string) => cat !== currentCategory);
       setCategories(filtered);
     } else {
       setCategories(recommendations);

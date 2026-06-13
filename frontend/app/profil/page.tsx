@@ -1,31 +1,60 @@
-import { createClient } from "@/lib/supabase/server"
-import { Header } from "@/components/header"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/bottom-nav"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Heart, ShoppingBag, Star, User, LogOut } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Heart, ShoppingBag, User, LogOut } from "lucide-react"
 import Link from "next/link"
+import { authService } from "@/services/auth.service"
 
-export default async function ProfilPage() {
-  const supabase = await createClient()
+export default function ProfilPage() {
+  const router  = useRouter()
+  const [user, setUser]       = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  useEffect(() => {
+    const currentUser = authService.getCurrentUser()
+    if (!currentUser) {
+      router.push("/auth/login")
+      return
+    }
+    setUser(currentUser)
+    setLoading(false)
 
-  // If not logged in, show login prompt
+    // Redirection selon le rôle
+    if (currentUser.role === "SELLER") {
+      router.replace("/vendeur/profil")
+    } else if (currentUser.role === "ADMIN") {
+      router.replace("/admin/profil")
+    }
+    // Pour USER (ou autre rôle), on reste sur cette page
+  }, [router])
+
+  const handleLogout = () => {
+    authService.logout()
+    router.push("/auth/login")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
-        
-
         <main className="flex-1 pb-20 md:pb-8">
           <div className="container px-4 py-12">
             <div className="max-w-md mx-auto text-center">
               <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
               <h1 className="text-2xl font-bold mb-2">Mon Profil</h1>
               <p className="text-muted-foreground mb-6">
-                Connectez-vous pour accéder à vos favoris et personnaliser votre expérience
+                Connectez-vous pour accéder à votre compte
               </p>
               <div className="flex flex-col gap-3">
                 <Button asChild>
@@ -38,93 +67,41 @@ export default async function ProfilPage() {
             </div>
           </div>
         </main>
-
         <BottomNav />
       </div>
     )
   }
 
-  // Fetch user favorites
-  const { data: favorites } = await supabase
-    .from("favorites")
-    .select("*, products(*, brands(*))")
-    .eq("user_id", user.id)
-
-  // Fetch user reviews
-  const { data: reviews } = await supabase.from("reviews").select("*, products(name)").eq("user_id", user.id)
-
   return (
     <div className="min-h-screen flex flex-col">
-      
-
       <main className="flex-1 pb-20 md:pb-8">
         <div className="container px-4 py-6">
+
           {/* Profile Header */}
           <Card className="mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Mon Profil</CardTitle>
+                  <CardTitle>{user.name}</CardTitle>
                   <CardDescription className="mt-1">{user.email}</CardDescription>
                 </div>
-                <form action="/auth/logout" method="post">
-                  <Button variant="outline" size="sm" type="submit">
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Déconnexion
-                  </Button>
-                </form>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Déconnexion
+                </Button>
               </div>
             </CardHeader>
           </Card>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Heart className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="text-2xl font-bold">{favorites?.length || 0}</p>
-                <p className="text-sm text-muted-foreground">Favoris</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <Star className="h-8 w-8 mx-auto mb-2 text-accent" />
-                <p className="text-2xl font-bold">{reviews?.length || 0}</p>
-                <p className="text-sm text-muted-foreground">Avis</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Favorites */}
+          {/* Role Badge */}
           <Card className="mb-6">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Mes Favoris</CardTitle>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/favoris">Voir tout</Link>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {favorites && favorites.length > 0 ? (
-                <div className="space-y-3">
-                  {favorites.slice(0, 3).map((fav: any) => (
-                    <Link
-                      key={fav.id}
-                      href={`/produits/${fav.product_id}`}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors"
-                    >
-                      <div className="h-12 w-12 rounded bg-muted flex-shrink-0"></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{fav.products?.name}</p>
-                        <p className="text-sm text-muted-foreground">{fav.products?.brands?.name}</p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-6">Aucun favori pour le moment</p>
-              )}
+            <CardContent className="pt-6 text-center">
+              <User className="h-12 w-12 mx-auto mb-2 text-primary" />
+              <p className="text-lg font-semibold">{user.name}</p>
+              <p className="text-sm text-muted-foreground">{user.role}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Membre depuis {new Date(user.created_at).toLocaleDateString('fr-FR')}
+              </p>
             </CardContent>
           </Card>
 
@@ -136,23 +113,23 @@ export default async function ProfilPage() {
             <CardContent>
               <div className="space-y-2">
                 <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
-                  <Link href="/favoris">
-                    <Heart className="h-4 w-4 mr-2" />
-                    Mes Favoris
+                  <Link href="/scanner">
+                    <ShoppingBag className="h-4 w-4 mr-2" />
+                    Scanner un produit
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
                   <Link href="/produits">
-                    <ShoppingBag className="h-4 w-4 mr-2" />
-                    Parcourir les Produits
+                    <Heart className="h-4 w-4 mr-2" />
+                    Parcourir les produits
                   </Link>
                 </Button>
               </div>
             </CardContent>
           </Card>
+
         </div>
       </main>
-
       <BottomNav />
     </div>
   )

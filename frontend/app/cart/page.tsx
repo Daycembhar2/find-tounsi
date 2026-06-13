@@ -1,30 +1,19 @@
-// app/cart/page.tsx
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Trash2, Plus, Minus, ShoppingCart } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-
-interface CartItem {
-  product_id: string
-  product_name: string
-  quantity: number
-  unit_price: number
-  seller_id: string
-  seller_name: string
-  image_url?: string
-}
+import { authService } from "@/services/auth.service"
+import type { CartItem } from "@/lib/types"
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     const savedCart = localStorage.getItem("findtounsi_cart")
@@ -74,10 +63,8 @@ export default function CartPage() {
     {} as Record<string, { seller_name: string; items: CartItem[] }>
   )
 
-  const handleCheckout = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+  const handleCheckout = () => {
+    const user = authService.getCurrentUser()
     if (!user) {
       router.push("/auth/login?next=/cart")
       return

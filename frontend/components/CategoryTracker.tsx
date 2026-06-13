@@ -1,19 +1,18 @@
-// components/CategoryTracker.tsx
 "use client"
-
 import { useEffect } from 'react'
-// components/CategoryTracker.tsx
-import { useRecommendationTracking } from '../../hooks/useRecommendationTracking';
+
 interface CategoryTrackerProps {
   categorySlug: string
 }
 
 export function CategoryTracker({ categorySlug }: CategoryTrackerProps) {
-  const { trackCategoryView } = useRecommendationTracking()
-
   useEffect(() => {
-    trackCategoryView(categorySlug)
-  }, [categorySlug, trackCategoryView])
+    const viewed = JSON.parse(localStorage.getItem('viewed_categories') || '[]')
+    if (!viewed.includes(categorySlug)) {
+      viewed.unshift(categorySlug)
+      localStorage.setItem('viewed_categories', JSON.stringify(viewed.slice(0, 10)))
+    }
+  }, [categorySlug])
 
-  return null // Ce composant ne rend rien, il fait juste le tracking
+  return null
 }

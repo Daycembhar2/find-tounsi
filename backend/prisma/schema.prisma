@@ -17,57 +17,69 @@ model User {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
+  phone          String?
+  business_name  String?
+  business_description String?
+  address        String?
+  city           String?
+
+  products       Product[]
+  ordersAsUser   Order[]   @relation("UserOrders")
+  ordersAsSeller Order[]   @relation("SellerOrders")
+  favorites      Favorite[]
+
   @@map("users")
 }
 
 enum Role {
   USER
   ADMIN
+  SELLER
 }
 
 // ── CATÉGORIES ───────────────────────────────────────
 model Category {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   name_ar     String?
-  slug        String    @unique
+  slug        String   @unique
   description String?
   icon        String?
-  created_at  DateTime  @default(now())
+  created_at  DateTime @default(now())
 
-  products    Product[]
+  products Product[]
 
   @@map("categories")
 }
 
 // ── MARQUES ──────────────────────────────────────────
 model Brand {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   name_ar     String?
-  slug        String    @unique
+  slug        String   @unique
   description String?
   logo_url    String?
   founded     Int?
-  is_verified Boolean   @default(false)
-  created_at  DateTime  @default(now())
+  is_verified Boolean  @default(false)
+  created_at  DateTime @default(now())
 
-  products    Product[]
+  products Product[]
 
   @@map("brands")
 }
 
 // ── RÉGIONS ──────────────────────────────────────────
 model Region {
-  id          String   @id @default(uuid())
-  name        String
-  name_ar     String?
-  slug        String   @unique
-  latitude    Float?
-  longitude   Float?
-  created_at  DateTime @default(now())
+  id         String   @id @default(uuid())
+  name       String
+  name_ar    String?
+  slug       String   @unique
+  latitude   Float?
+  longitude  Float?
+  created_at DateTime @default(now())
 
-  products    Product[]
+  products Product[]
 
   @@map("regions")
 }
@@ -90,11 +102,52 @@ model Product {
   created_at              DateTime @default(now())
   updated_at              DateTime @updatedAt
 
-  category Category? @relation(fields: [category_id], references: [id])
-  brand    Brand?    @relation(fields: [brand_id], references: [id])
-  region   Region?   @relation(fields: [region_id], references: [id])
+  category     Category?   @relation(fields: [category_id], references: [id])
+  brand        Brand?      @relation(fields: [brand_id], references: [id])
+  region       Region?     @relation(fields: [region_id], references: [id])
+  seller_id    String?
+  seller       User?       @relation(fields: [seller_id], references: [id])
+  stock        Int?
+  is_available Boolean     @default(true)
+  images       String[]
+  order_items  OrderItem[]
+  favorites    Favorite[]
 
   @@map("products")
+}
+
+model Order {
+  id               String   @id @default(uuid())
+  user_id          String?
+  seller_id        String?
+  order_number     String   @unique
+  total_amount     Float    @default(0)
+  status           String   @default("pending")
+  delivery_address String?
+  delivery_city    String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  user        User?       @relation("UserOrders", fields: [user_id], references: [id])
+  seller      User?       @relation("SellerOrders", fields: [seller_id], references: [id])
+  order_items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  order_id    String?
+  product_id  String?
+  quantity    Int      @default(1)
+  unit_price  Float    @default(0)
+  total_price Float    @default(0)
+  created_at  DateTime @default(now())
+
+  order   Order?   @relation(fields: [order_id], references: [id])
+  product Product? @relation(fields: [product_id], references: [id])
+
+  @@map("order_items")
 }
 
 // ── BOYCOTT ──────────────────────────────────────────
@@ -116,4 +169,31 @@ enum BoycottLevel {
   LOW
   MEDIUM
   HIGH
+}
+
+// ── FAVORIS ──────────────────────────────────────────
+model Favorite {
+  id         String   @id @default(uuid())
+  user_id    String
+  product_id String
+  created_at DateTime @default(now())
+
+  user    User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, product_id])
+  @@map("favorites")
+}
+
+// ── PRODUITS MANQUANTS ───────────────────────────────
+model MissingProductReport {
+  id           String   @id @default(uuid())
+  user_id      String?
+  barcode      String
+  product_name String?
+  description  String?
+  status       String   @default("pending")
+  created_at   DateTime @default(now())
+
+  @@map("missing_product_reports")
 }

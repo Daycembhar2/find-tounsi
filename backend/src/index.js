@@ -51,6 +51,10 @@ app.use('/api/regions',    require('./routes/map.routes'));
 app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/scan', require('./routes/scan.routes'));
 app.use('/api/ai', require('./routes/ai.routes'));
+app.use('/api/missing-products', require('./routes/missing-products.routes'));
+app.use('/api/orders', require('./routes/orders.routes'));
+app.use('/api/favorites', require('./routes/favorites.routes'));
+app.use('/api/sellers', require('./routes/sellers.routes'));
 // ── Démarrage serveur ────────────────────────────────
 app.listen(PORT, () => {
   console.log('');

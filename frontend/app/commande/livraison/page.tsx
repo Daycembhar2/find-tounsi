@@ -1,225 +1,145 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import api from "@/lib/api"
+import { authService } from "@/services/auth.service"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { AlertCircle, CheckCircle2, MapPin } from "lucide-react"
-import { useRouter } from "next/navigation"
 
 export default function DeliveryPage() {
+  const router = useRouter()
+  const [cartItems, setCartItems] = useState<any[]>([])
   const [address, setAddress] = useState("")
   const [city, setCity] = useState("")
-  const [postalCode, setPostalCode] = useState("")
-  const [phone, setPhone] = useState("")
-  const [notes, setNotes] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const supabase = createClient()
+
+  useEffect(() => {
+    const user = authService.getCurrentUser()
+
+    if (!user) {
+      router.push("/auth/login?next=/commande/livraison")
+      return
+    }
+
+    const saved = sessionStorage.getItem("checkout_cart") || localStorage.getItem("findtounsi_cart")
+    const cart = saved ? JSON.parse(saved) : []
+
+    if (cart.length === 0) {
+      router.push("/cart")
+      return
+    }
+
+    setCartItems(cart)
+  }, [router])
+
+  const total = cartItems.reduce(
+    (sum, item) => sum + Number(item.unit_price) * Number(item.quantity),
+    0
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
-    if (!address || !city || !phone) {
-      setError("Veuillez remplir tous les champs obligatoires")
-      setIsLoading(false)
+    const user = authService.getCurrentUser()
+
+    if (!user) {
+      router.push("/auth/login")
+      return
+    }
+
+    if (!address.trim() || !city.trim()) {
+      setError("Adresse et ville sont obligatoires")
       return
     }
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Vous devez être connecté")
+      setIsSaving(true)
 
-      // Get cart from session
-      const cartData = sessionStorage.getItem("checkout_cart")
-      if (!cartData) throw new Error("Panier vide")
+      const groupedBySeller = cartItems.reduce((acc: any, item: any) => {
+        if (!acc[item.seller_id]) acc[item.seller_id] = []
+        acc[item.seller_id].push(item)
+        return acc
+      }, {})
 
-      const cartItems = JSON.parse(cartData)
-
-      // Group by seller and create orders
-      const ordersBySeller: Record<string, any> = {}
-      for (const item of cartItems) {
-        if (!ordersBySeller[item.seller_id]) {
-          ordersBySeller[item.seller_id] = {
-            items: [],
-            total: 0,
-          }
-        }
-        ordersBySeller[item.seller_id].items.push(item)
-        ordersBySeller[item.seller_id].total += item.unit_price * item.quantity
-      }
-
-      // Create order for each seller
-      for (const [sellerId, orderData] of Object.entries(ordersBySeller)) {
-        const orderNumber = `TN${Date.now()}`
-        const shippingCost = 5
-        const tax = orderData.total * 0.07
-        const totalAmount = orderData.total + shippingCost + tax
-
-        const { data: order, error: orderError } = await supabase
-          .from("orders")
-          .insert({
-            user_id: user.id,
-            seller_id: sellerId,
-            order_number: orderNumber,
-            total_amount: totalAmount,
-            shipping_cost: shippingCost,
-            tax_amount: tax,
-            status: "pending",
-            payment_status: "unpaid",
-            delivery_address: address,
-            delivery_city: city,
-            notes: notes || null,
-          })
-          .select()
-          .single()
-
-        if (orderError) throw orderError
-
-        // Add order items
-        const itemsToInsert = orderData.items.map((item: any) => ({
-          order_id: order.id,
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          total_price: item.unit_price * item.quantity,
-        }))
-
-        const { error: itemsError } = await supabase.from("order_items").insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
-
-        // Create payment record
-        const { error: paymentError } = await supabase.from("payments").insert({
-          order_id: order.id,
+      for (const [sellerId, items] of Object.entries(groupedBySeller)) {
+        await api.post("/api/orders", {
           user_id: user.id,
-          amount: totalAmount,
-          currency: "TND",
-          payment_method: "card",
-          status: "pending",
+          seller_id: sellerId,
+          delivery_address: address,
+          delivery_city: city,
+          items: (items as any[]).map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+          })),
         })
-
-        if (paymentError) throw paymentError
       }
 
-      setSuccess(true)
-      sessionStorage.removeItem("checkout_cart")
       localStorage.removeItem("findtounsi_cart")
+      sessionStorage.removeItem("checkout_cart")
+      window.dispatchEvent(new Event("cartUpdated"))
 
-      setTimeout(() => {
-        router.push("/commande/paiement")
-        router.refresh()
-      }, 1500)
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Erreur lors de la création de la commande")
+      router.push("/commande/sucess")
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Erreur lors de la création de la commande")
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <MapPin className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl font-bold text-primary">Adresse de Livraison</h1>
-          </div>
-          <p className="text-muted-foreground">Entrez vos coordonnées exactes pour la livraison</p>
-        </div>
+    <div className="min-h-screen p-4 md:p-8 bg-background">
+      <div className="max-w-3xl mx-auto">
+        <h1 className="text-3xl font-bold mb-6">Adresse de livraison</h1>
 
         <Card>
-          <CardContent className="pt-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2 grid gap-2">
-                  <Label htmlFor="address">Adresse complète *</Label>
-                  <Textarea
-                    id="address"
-                    placeholder="Rue, numéro, immeuble..."
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    required
-                  />
-                </div>
+          <CardHeader>
+            <CardTitle>Finaliser la commande</CardTitle>
+          </CardHeader>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="city">Ville *</Label>
-                  <Input
-                    id="city"
-                    placeholder="Ex: Tunis"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    required
-                  />
-                </div>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid gap-2">
+                <Label>Adresse</Label>
+                <Input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Votre adresse complète"
+                />
+              </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="postal">Code postal</Label>
-                  <Input
-                    id="postal"
-                    placeholder="Ex: 1000"
-                    value={postalCode}
-                    onChange={(e) => setPostalCode(e.target.value)}
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label>Ville</Label>
+                <Input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Ex: Nabeul"
+                />
+              </div>
 
-                <div className="md:col-span-2 grid gap-2">
-                  <Label htmlFor="phone">Téléphone de contact *</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+216 XX XXX XXX"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="md:col-span-2 grid gap-2">
-                  <Label htmlFor="notes">Notes de livraison</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Instructions spéciales pour la livraison..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </div>
+              <div className="rounded-lg border p-4 bg-muted/30">
+                <p className="font-semibold mb-2">Résumé</p>
+                <p className="text-sm text-muted-foreground">
+                  {cartItems.length} article(s)
+                </p>
+                <p className="text-xl font-bold text-primary mt-2">
+                  {total.toFixed(3)} TND
+                </p>
               </div>
 
               {error && (
-                <div className="flex gap-2 text-sm text-destructive p-4 bg-destructive/10 rounded-lg">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  {error}
-                </div>
+                <p className="text-sm text-destructive">{error}</p>
               )}
 
-              {success && (
-                <div className="flex gap-2 text-sm text-green-600 p-4 bg-green-50 rounded-lg">
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  Commande créée avec succès! Redirection vers le paiement...
-                </div>
-              )}
-
-              <div className="flex gap-4">
-                <Button type="submit" className="flex-1" disabled={isLoading}>
-                  {isLoading ? "Création..." : "Continuer vers le paiement"}
-                </Button>
-                <Button type="button" variant="outline" className="flex-1 bg-transparent" onClick={() => router.back()}>
-                  Retour
-                </Button>
-              </div>
+              <Button type="submit" className="w-full" disabled={isSaving}>
+                {isSaving ? "Création de la commande..." : "Confirmer la commande"}
+              </Button>
             </form>
           </CardContent>
         </Card>

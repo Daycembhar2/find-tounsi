@@ -16,14 +16,19 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/brands/:slug — une marque avec ses produits
-router.get('/:slug', async (req, res) => {
+// GET /api/brands/:identifier — une marque par id ou slug
+router.get('/:identifier', async (req, res) => {
   try {
-    const brand = await prisma.brand.findUnique({
-      where   : { slug: req.params.slug },
-      include : {
+    const brand = await prisma.brand.findFirst({
+      where: {
+        OR: [
+          { id: req.params.identifier },
+          { slug: req.params.identifier },
+        ],
+      },
+      include: {
         products: {
-          include : { category: true, region: true },
+          include: { category: true, region: true },
         },
       },
     });

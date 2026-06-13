@@ -90,7 +90,7 @@ export default function Header() {
 
           {user && (
             <>
-              <Link href="/favorites">
+              <Link href="/favoris">
                 <Button variant="ghost" size="icon">
                   <Heart className="h-5 w-5" />
                 </Button>
@@ -105,7 +105,7 @@ export default function Header() {
 
           {user ? (
             <>
-              <Link href="/dashboard" className="hidden md:block">
+              <Link href="/profil" className="hidden md:block">
                 <Button variant="ghost" size="icon">
                   <User className="h-5 w-5" />
                 </Button>
@@ -166,7 +166,7 @@ export default function Header() {
 
                 {user ? (
                   <>
-                    <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                    <Link href="/profil" onClick={() => setMobileMenuOpen(false)}>
                       <Button variant="ghost" className="w-full justify-start">
                         <User className="h-5 w-5 mr-2" />
                         Tableau de bord
